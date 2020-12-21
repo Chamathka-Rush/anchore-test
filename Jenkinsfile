@@ -16,27 +16,31 @@ pipeline {
         stage('Building our image') { 
             steps { 
                 script { 
-                    dockerImage = docker.build registry + ":$BUILD_NUMBER" 
+                    dockerImage = docker.build("${registry}:$BUILD_NUMBER") 
                     echo "${dockerImage}"
                 }
             } 
         }
-        stage('Deploy our image') { 
+        stage('Docker Push') { 
             steps { 
                 script { 
                     docker.withRegistry( '', registryCredential ) {                         
-                        dockerImage.push() 
-                        echo "${dockerImage} ${WORKSPACE}/Dockerfile > anchore_images"
-                        anchore forceAnalyze: true, bailOnFail: false, timeout: -1.0, name: 'anchore_images'
+                    dockerImage.push() 
+                    // sh "docker push $registry:$BUILD_NUMBER"    
                     }
                 } 
             }
         }
         
-        stage('Cleaning up') { 
-            steps { 
-                sh "docker rmi $registry:$BUILD_NUMBER" 
+        stage('Anchore analysis'){
+            steps{
+                script{
+                    sh 'echo "docker.io/${registry}:$BUILD_NUMBER ${WORKSPACE}/Dockerfile" > anchore_images'
+                    anchore forceAnalyze: true, bailOnFail: false, timeout: -1.0, name: 'anchore_images'
+                    sh "docker rmi $registry:$BUILD_NUMBER"
+                }
             }
-        } 
+        }
+         
     }
 }
